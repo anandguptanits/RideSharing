@@ -16,5 +16,4 @@ public class Ride {
     private int timeTakenInMin;
     private boolean isEnd;
 
-
 }

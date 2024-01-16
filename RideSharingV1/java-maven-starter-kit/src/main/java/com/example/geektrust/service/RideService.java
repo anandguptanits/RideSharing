@@ -1,4 +1,6 @@
 package com.example.geektrust.service;
+import com.example.geektrust.exception.InvalidRideException;
+import com.example.geektrust.printer.OutputPrinter;
 import com.example.geektrust.strategy.BillingStrategy;
 import com.example.geektrust.strategy.MatchStrategy;
 import com.example.geektrust.database.RideManager;
@@ -11,84 +13,78 @@ import java.util.*;
 
 public class RideService {
 
-    RideManager rideManager;
-    MatchStrategy matchStrategy;
-    RiderManager riderManager;
-    BillingStrategy billingStrategy;
+    final RideManager rideManager;
+    final MatchStrategy matchStrategy;
+    final RiderManager riderManager;
+    final OutputPrinter outputPrinter;
 
-    public RideService(RideManager rideManager, MatchStrategy matchStrategy, RiderManager riderManager, BillingStrategy billingStrategy)
+    public RideService(RideManager rideManager, MatchStrategy matchStrategy, RiderManager riderManager, OutputPrinter outputPrinter)
     {
         this.rideManager=rideManager;
         this.matchStrategy=matchStrategy;
         this.riderManager=riderManager;
-        this.billingStrategy=billingStrategy;
+        this.outputPrinter=outputPrinter;
     }
 
     public void startRide(String rideId,int n,String riderId)
     {
-          if(rideManager.isRidePresent(rideId))
-          {
-            System.out.println("INVALID_RIDE");
-            return;
+          try {
+              if(rideManager.isRidePresent(rideId))
+              {
+                 throw new InvalidRideException();
+              }
+
+              List<Driver> matchedDriver = matchStrategy.matchDriver(riderId, false);
+
+              Driver nthDriver = matchStrategy.getNthMatchedDriver(n, matchedDriver);
+
+              nthDriver.setRiding(true);
+
+              Rider rider = riderManager.getRider(riderId);
+
+              Ride ride = Ride.builder().rideId(rideId)
+                      .strCoordinate(rider.getCoordinate())
+                      .rider(rider)
+                      .driver(nthDriver).build();
+
+              rideManager.addRide(ride);
+
+              outputPrinter.printStartRide(ride);
           }
-
-          List<Driver> matchedDriver=matchStrategy.matchDriver(riderId,false);
-
-          if(matchedDriver.size()<n)
+          catch (InvalidRideException invalidRideException)
           {
-              System.out.println("INVALID_RIDE");
-              return;
+              outputPrinter.printInvalidRide();
           }
-
-          Driver nthDriver=matchedDriver.get(n-1);
-          nthDriver.setRiding(true);
-
-          Rider rider=riderManager.getRider(riderId);
-
-          Ride ride=Ride.builder().rideId(rideId)
-                  .strCoordinate(rider.getCoordinate())
-                  .rider(rider)
-                  .driver(nthDriver).build();
-
-          rideManager.addRide(ride);
-
-          System.out.println("RIDE_STARTED "+ride.getRideId());
     }
 
     public void stopRide(String rideId,int x,int y,int timeTaken)
     {
-          if(!rideManager.isRidePresent(rideId) || rideManager.getRide(rideId).isEnd())
-          {
-              System.out.println("INVALID_RIDE");
-              return;
-          }
+        try {
+            if(!rideManager.isRidePresent(rideId) || rideManager.getRide(rideId).isEnd())
+            {
+                throw new InvalidRideException();
+            }
 
-          Ride ride=rideManager.getRide(rideId);
+            Ride ride=rideManager.getRide(rideId);
 
-          Coordinate destCoordinate=new Coordinate(x,y);
+            Coordinate destCoordinate=new Coordinate(x,y);
 
-          //set driver status to available for ride.
-          ride.getDriver().setRiding(false);
+            //set driver status to available for ride.
+            ride.getDriver().setRiding(false);
 
-          //update driver coordinate
-          ride.getDriver().setCoordinate(destCoordinate);
+            //update driver coordinate
+            ride.getDriver().setCoordinate(destCoordinate);
 
-          ride.setDestCoordinate(destCoordinate);
-          ride.setTimeTakenInMin(timeTaken);
-          ride.setEnd(true);
+            ride.setDestCoordinate(destCoordinate);
+            ride.setTimeTakenInMin(timeTaken);
+            ride.setEnd(true);
 
-          System.out.println("RIDE_STOPPED "+ride.getRideId());
-    }
-
-    public void generateBill(String rideId)
-    {
-        if(!rideManager.isRidePresent(rideId))
-        {
-           System.out.println("INVALID_RIDE");
-           return;
+            outputPrinter.printStopRide(ride);
         }
-        Ride ride=rideManager.getRide(rideId);
-        double billAmount=billingStrategy.getRideBill(rideId);
-        System.out.println("BILL "+rideId+" "+ride.getDriver().getDriverId()+" "+String.format("%.2f",billAmount));
+        catch (InvalidRideException invalidRideException)
+        {
+            outputPrinter.printInvalidRide();
+        }
     }
+
 }

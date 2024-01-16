@@ -1,54 +1,60 @@
 package com.example.geektrust.strategy;
-
+import com.example.geektrust.Constants;
 import com.example.geektrust.database.RideManager;
-import com.example.geektrust.model.Coordinate;
+import com.example.geektrust.exception.InvalidRideException;
+import com.example.geektrust.exception.RideNotCompletedException;
 import com.example.geektrust.model.Ride;
+import com.example.geektrust.printer.OutputPrinter;
+
 import java.text.DecimalFormat;
 
 public class DefaultBillingStrategy implements BillingStrategy{
 
-    private final double BASE_FARE=50;
-    private final double KM_CHARGE=6.5;
-    private final double MIN_CHARGE=2;
-    private final double SERVICE_TAX=0.2;
-
     RideManager rideManager;
+    OutputPrinter outputPrinter;
 
-    public DefaultBillingStrategy(RideManager rideManager){
+    public DefaultBillingStrategy(RideManager rideManager,OutputPrinter outputPrinter){
       this.rideManager=rideManager;
+      this.outputPrinter=outputPrinter;
     }
 
     @Override
-    public double getRideBill(String rideId) {
+    public void generateBill(String rideId) {
 
-        if(!rideManager.isRidePresent(rideId))
-        {
-            System.out.println("INVALID_RIDE");
+        try{
+            if(!rideManager.isRidePresent(rideId))
+            {
+                throw new InvalidRideException();
+            }
+            Ride ride=rideManager.getRide(rideId);
+
+            if(!ride.isEnd())
+            {
+                throw new RideNotCompletedException();
+            }
+
+            double billAmount=calculateRideFare(ride);
+
+            outputPrinter.printBill(ride,billAmount);
         }
-
-        Ride ride=rideManager.getRide(rideId);
-
-        if(!ride.isEnd())
+        catch (InvalidRideException invalidRideException){
+            outputPrinter.printInvalidRide();
+        }catch (RideNotCompletedException rideNotCompletedException)
         {
-            System.out.println("RIDE_NOT_COMPLETED");
+            outputPrinter.printRideNotCompleted();
         }
-
-        Coordinate src=ride.getStrCoordinate();
-        Coordinate des=ride.getDestCoordinate();
-
-        double distanceTravelled=src.getDistance(des);
-        double timeTakenInMin=ride.getTimeTakenInMin();
-
-        return calculateFare(distanceTravelled,timeTakenInMin);
     }
 
-    private double calculateFare(double distanceTravelled,double timeTakenInMin)
+    private double calculateRideFare(Ride ride)
     {
+        double distanceTravelled=ride.getStrCoordinate().getDistance(ride.getDestCoordinate());
+        double timeTakenInMin=ride.getTimeTakenInMin();
+
         DecimalFormat df = new DecimalFormat("0.00");
         df.setRoundingMode(java.math.RoundingMode.HALF_UP);
 
-        double totalAmountWithoutTax=Double.valueOf(df.format(BASE_FARE+(distanceTravelled*KM_CHARGE)+(timeTakenInMin*MIN_CHARGE)));
-        double serviceTax=Double.valueOf(df.format(totalAmountWithoutTax*SERVICE_TAX));
+        double totalAmountWithoutTax=Double.valueOf(df.format(Constants.BASE_FARE+(distanceTravelled*Constants.KM_CHARGE)+(timeTakenInMin*Constants.MIN_CHARGE)));
+        double serviceTax=Double.valueOf(df.format(totalAmountWithoutTax*Constants.SERVICE_TAX));
 
         return totalAmountWithoutTax+serviceTax;
 

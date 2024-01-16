@@ -1,8 +1,12 @@
 package com.example.geektrust.strategy;
+import com.example.geektrust.Constants;
 import com.example.geektrust.database.DriverManager;
 import com.example.geektrust.database.RiderManager;
+import com.example.geektrust.exception.InvalidRideException;
+import com.example.geektrust.exception.NoDriverAvailableException;
 import com.example.geektrust.model.Driver;
 import com.example.geektrust.model.Rider;
+import com.example.geektrust.printer.OutputPrinter;
 
 import java.util.Collections;
 import java.util.List;
@@ -10,21 +14,23 @@ import java.util.stream.Collectors;
 
 public class MatchWithinLimitStrategy implements MatchStrategy{
 
-    private final double MATCH_LIMIT_KM=5;
-    DriverManager driverManager;
-    RiderManager riderManager;
+    final DriverManager driverManager;
+    final RiderManager riderManager;
+    final OutputPrinter outputPrinter;
 
-    public MatchWithinLimitStrategy(DriverManager driverManager, RiderManager riderManager)
+    public MatchWithinLimitStrategy(DriverManager driverManager, RiderManager riderManager,OutputPrinter outputPrinter)
     {
         this.driverManager=driverManager;
         this.riderManager=riderManager;
+        this.outputPrinter=outputPrinter;
     }
 
     public List<Driver> matchDriver(String riderId,boolean print) {
+
         Rider rider = riderManager.getRider(riderId);
 
         List<Driver> matchedDriver= driverManager.getDrivers().stream().
-                filter(driver -> !driver.isRiding() && driver.getDistanceFromRider(rider)<=MATCH_LIMIT_KM).
+                filter(driver -> !driver.isRiding() && driver.getDistanceFromRider(rider)<= Constants.MATCH_LIMIT_KM).
                 sorted((d1,d2)->{
                     if(d1.getDistanceFromRider(rider)==d2.getDistanceFromRider(rider))
                         return d1.getDriverId().compareTo(d2.getDriverId());
@@ -34,26 +40,18 @@ public class MatchWithinLimitStrategy implements MatchStrategy{
 
         if(print)
         {
-            printMatchedDriver(matchedDriver);
+            outputPrinter.printMatchedDrivers(matchedDriver);
         }
 
         return matchedDriver;
     }
 
-    private void printMatchedDriver(List<Driver> matchedDriver)
+    public Driver getNthMatchedDriver(int n,List<Driver> matchedDriver)
     {
-        if(matchedDriver.isEmpty())
-        {
-            System.out.println("NO_DRIVERS_AVAILABLE");
-            return;
+        if(matchedDriver.isEmpty() || matchedDriver.size()<n){
+            throw new InvalidRideException();
         }
-
-        System.out.print("DRIVERS_MATCHED ");
-
-        for(Driver driver:matchedDriver)
-        {
-            System.out.print(driver.getDriverId()+" ");
-        }
-        System.out.println();
+        return matchedDriver.get(n-1);
     }
+
 }

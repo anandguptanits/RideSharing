@@ -2,18 +2,20 @@ package com.example.geektrust.command;
 import com.example.geektrust.database.*;
 import com.example.geektrust.model.Coordinate;
 import com.example.geektrust.model.Rider;
+import com.example.geektrust.printer.OutputPrinter;
 import com.example.geektrust.service.RideService;
 import com.example.geektrust.strategy.*;
 
 public class CommandExecutor {
 
-    DriverManager driverManager=new DriverManager();
-    RiderManager riderManager=new RiderManager();
-    RideManager rideManager=new RideManager();
-    MatchStrategy matchStrategy=new MatchWithinLimitStrategy(driverManager,riderManager);
-    BillingStrategy billingStrategy=new DefaultBillingStrategy(rideManager);
+    final DriverManager driverManager=new DriverManager();
+    final RiderManager riderManager=new RiderManager();
+    final RideManager rideManager=new RideManager();
+    OutputPrinter outputPrinter=new OutputPrinter();
+    final MatchStrategy matchStrategy=new MatchWithinLimitStrategy(driverManager,riderManager,outputPrinter);
+    final BillingStrategy billingStrategy=new DefaultBillingStrategy(rideManager,outputPrinter);
 
-    RideService rideService=new RideService(rideManager,matchStrategy,riderManager,billingStrategy);
+    RideService rideService=new RideService(rideManager,matchStrategy,riderManager,outputPrinter);
 
     public void executeCommand(String[] command)
     {
@@ -34,7 +36,7 @@ public class CommandExecutor {
             rideService.stopRide(command[1],Integer.parseInt(command[2]),Integer.parseInt(command[3]),Integer.parseInt(command[4]));
         }else if(command[0].equals("BILL"))
         {
-            rideService.generateBill(command[1]);
+            billingStrategy.generateBill(command[1]);
         }
     }
 
